@@ -1,0 +1,10 @@
+MANIFEST.in
+README.rst
+setup.py
+BJFinanceLib/__init__.py
+BJFinanceLib.egg-info/PKG-INFO
+BJFinanceLib.egg-info/SOURCES.txt
+BJFinanceLib.egg-info/dependency_links.txt
+BJFinanceLib.egg-info/not-zip-safe
+BJFinanceLib.egg-info/requires.txt
+BJFinanceLib.egg-info/top_level.txt

@@ -1,0 +1,11 @@
+Metadata-Version: 1.0
+Name: BJFinanceLib
+Version: 0.1
+Summary: Collection of finance utilities
+Home-page: UNKNOWN
+Author: Bram Jochems
+Author-email: bram.jochems@gmail.com
+License: MIT
+Description: UNKNOWN
+Keywords: finance,quant,black-scholes,options
+Platform: UNKNOWN
