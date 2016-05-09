@@ -8,7 +8,7 @@ such as historcal VaR and expected shortfall.
 
 import numpy as np
 
-def VaR(pnldata,clevel):
+def VaR(clevel,pnldata):
     """
     Calculates the Value-at-Risk for historical pnl data. For a vector r of
     returns, the a% VaR is defined as -Q(r,100-a) where Q is the quantile
@@ -16,13 +16,14 @@ def VaR(pnldata,clevel):
     is returned as a positive number.
     
     Arguments:
+        - clelvel: The "confidence level" for which to calculate the VaR number.
+               Confidence levels are expressed as a number between 0 an 100
+               instead of between zero and one
         - pnldata : this can be either any iterable containing numeric values
                     or a dataframe or numpy matrix. In those cases, each
                     column is interpreted as a seperate input for which a VaR
                     figure is returned.
-        - clelvel: The "confidence level" for which to calculate the VaR number.
-                   Confidence levels are expressed as a number between 0 an 100
-                   instead of between zero and one
+
                    
     Returns: either a scalar (if pnldata is one-dimensional) or a numpy vector
              (if pnldata is two-dimensional) where the values represent the
@@ -31,7 +32,7 @@ def VaR(pnldata,clevel):
     quantile = 100 - np.clip(clevel,0,100)
     return -np.percentile(pnldata,quantile,axis=0)
     
-def CVaR(pnldata,clevel):
+def CVaR(clevel,pnldata):
     """
     Calculates the Conditional Value-at-Risk (also called Expected Shortfall,
     Average Value-at-Risk or Expected Tail Loss) for historical pnl data. For
@@ -44,13 +45,14 @@ def CVaR(pnldata,clevel):
     an average loss is represented as a positive number.
     
     Arguments:
+        - clelvel: The "confidence level" for which to calculate the VaR number.
+               Confidence levels are expressed as a number between 0 an 100
+               instead of between zero and one
         - pnldata : this can be either any iterable containing numeric values
                     or a dataframe or numpy matrix. In those cases, each
                     column is interpreted as a seperate input for which a VaR
                     figure is returned.
-        - clelvel: The "confidence level" for which to calculate the VaR number.
-                   Confidence levels are expressed as a number between 0 an 100
-                   instead of between zero and one
+
                    
     Returns: either a scalar (if pnldata is one-dimensional) or a numpy vector
              (if pnldata is two-dimensional) where the values represent the
@@ -68,30 +70,26 @@ def CVaR(pnldata,clevel):
     else:
         return res
     
-    
-def ES(pnldata,clevel):
+def ES(clevel,pnldata):
     """
     Calculates Expected Shortfall by calling the CVaR function. This function
     is only here for convenient naming access and does not provide additional
     logic. See the CVaR function for documentation.
     """
-    return CVaR(pnldata,clevel)
+    return CVaR(clevel,pnldata)
     
-def AVaR(pnldata,clevel):
+def AVaR(clevel,pnldata):
     """
     Calculates Average Value-at-Risk by calling the CVaR function. This
     function is only here for convenient naming access and does not provide
     additional logic. See the CVaR function for documentation.
     """
-    return CVaR(pnldata,clevel)
+    return CVaR(clevel,pnldata)
     
-    
-def ETL(pnldata,clevel):
+def ETL(clevel,pnldata):
     """
     Calculates Expected Tail Loss by calling the CVaR function. This
     function is only here for convenient naming access and does not provide
     additional logic. See the CVaR function for documentation.
     """
-    return CVaR(pnldata,clevel)
-    
-    
+    return CVaR(clevel,pnldata)
