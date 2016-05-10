@@ -1,6 +1,7 @@
 MANIFEST.in
 README.rst
 setup.py
+BJFinanceLib/__init__.py
 BJFinanceLib.egg-info/PKG-INFO
 BJFinanceLib.egg-info/SOURCES.txt
 BJFinanceLib.egg-info/dependency_links.txt
