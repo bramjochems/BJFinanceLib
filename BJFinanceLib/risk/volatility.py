@@ -161,7 +161,9 @@ def estimator_YangZhang(ohlc_df,
 def volatilitycone(data,
                    estimator,
                    windows,
-                   percentiles=[0.10,0.25,0.50,0.75,0.90]):
+                   percentiles=[0.10,0.25,0.50,0.75,0.90],
+                   appendCurrent=True,
+                   applyAdjustment=True):
                    
     """
     Calculates volatility cones (volatility estimates for different) tenors
@@ -176,13 +178,27 @@ def volatilitycone(data,
     windows : list of window lengths to use
     percentiles : percentiles ot calculate the cone values for given as a
                   number between 0 and 1.
+    appendCurrent : boolean indicating whether the most recent volatility
+                    estimates for each window length need to be added
+    applyAdjustment: boolean indicating whether the adjustment for overlapping
+                     windos is applied
     """
     percentiles = np.clip(percentiles,0,1)*100
     T = len(data)
     def adjustment(subseries_length):
-        h = subseries_length
-        n = T-h+1
-        return np.sqrt(1/(1-h/n+(h*h-1)/(3*n*n)))
+        if applyAdjustment:
+            h = subseries_length
+            n = T-h+1
+            return 1/np.sqrt(1/(1-h/n+(h*h-1)/(3*n*n)))
+        else:
+            return 1
+    
+    def myrolling_apply(df, N, f, nn=1):
+        ii = [int(x) for x in np.arange(0, df.shape[0] - N + 1, nn)]
+        out = [f(df.iloc[i:(i + N)]) for i in ii]
+        out = pd.Series(out)
+        out.index = df.index[N-1::nn]
+        return(out)    
     
     cones = []
     windows_used = []
@@ -190,13 +206,13 @@ def volatilitycone(data,
     for h in windows:
         if (h > 0) and (h < T):
             adjFactor = adjustment(h)
-            series = data.rolling(h).apply(estimator).dropna()
+            series = myrolling_apply(data,h,lambda x:estimator(x))
             cones.append(adjFactor*np.percentile(series,percentiles))
-            current.append(series.iloc[-1][0])
+            current.append(series.iloc[-1])
             windows_used.append(h)
 
     res=pd.DataFrame(cones)
     res.index = windows_used
     res.columns = percentiles
-    res['current'] = current
+    if appendCurrent: res['current'] = current
     return res
