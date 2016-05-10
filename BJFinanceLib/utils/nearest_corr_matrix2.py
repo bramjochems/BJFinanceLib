@@ -3,7 +3,8 @@
 Another nearest correlation matrix algorithm from the web
 https://github.com/mikecroucher/nearest_correlation/blob/master/nearest_correlation.py
 
-@author: Mike Croucher
+Made a few small adjustments to the code to remove the not-implemented
+argument options
 """
 
 import numpy as np
