@@ -3,7 +3,7 @@ import math
 import scipy.stats as ss
 import scipy.optimize as opt
 
-def _flagToInt(flag,forward,strike):
+def _flagToInt(flag):
     """
     Helper function that turns a flag into a +/-1 float.
     """
@@ -24,6 +24,12 @@ def _d1d2ByFwd(forward,strike,vol,ttm):
     d2 = d1 - ssqrt
     return (d1,d2)
  
+def forward(spot=None, costOfCarry=None,ttm=None):
+    """
+    Forward from spot
+    """
+    return spot*math.exp(costOfCarry*ttm)
+ 
 def GeneralizedBlackScholes(flag=None,spot=None,strike=None,volatility=None,
                             ttm = None, discountFactor=None, costOfCarry=None,
                             price=None,output=None):
@@ -43,7 +49,12 @@ def GeneralizedBlackScholes(flag=None,spot=None,strike=None,volatility=None,
         - output: a list of outputs that can be request. If output=None, then
                   it is substituted by a list containing t he field ['value'].
                   Other arguments that can be entered into, or added to this
-                  list are delta, gamma, vega.
+                  list are delta, gamma, vega, gammaP, theta, rho, carryRho,
+                  d1, d2.
+                  A few remarks on those:
+                  - vega, rho, carryRho for a 1% (absolute) change in the
+                    the related paramter
+                  - theta is per 1/365th change in time to maturity
                       
     Returns:
         - A single option value or greek if all parameters are specified and
@@ -74,21 +85,37 @@ def GeneralizedBlackScholes(flag=None,spot=None,strike=None,volatility=None,
         Depending on inputs, this might return just an option value or a
         dicitonary of values
         """
-        forward = spot * math.exp(costOfCarry*ttm)
+        ebt =math.exp(costOfCarry*ttm)
+        forward = spot * ebt
         d1, d2 = _d1d2ByFwd(forward,strike,volatility,ttm)
         Nd1f,Nd2f = ss.norm.cdf(flag*d1), ss.norm.cdf(flag*d2)
         price = discountFactor*(flag*forward*Nd1f - flag * strike * Nd2f)
         
         if not calibration and output:
+            if not ttm=0.
             sqrtt = math.sqrt(ttm)
-            ebt = math.exp(costOfCarry*ttm)
             res = {}
+            nd1 = ss.norm.pdf(d1)
             if "price" in output: res["price"] = price
             if "delta" in output: res["delta"] = flag * ebt * discountFactor * Nd1f
-            if "gamma" in output: res["gamma"] = discountFactor * ebt * ss.norm.pdf(d1)/(spot*volatility*sqrtt)
-            if "gammaP" in output: res["gammaP"] = discountFactor * ebt * ss.norm.pdf(d1)/(100*volatility*sqrtt) #gamma * spot/100   
-            if "vega" in output: res["vega"] = discountFactor * forward*ss.norm.pdf(d1)*sqrtt/100.0
-            return res
+            if "gamma" in output: res["gamma"] = discountFactor * ebt * nd1/(spot*volatility*sqrtt)
+            if "gammaP" in output: res["gammaP"] = discountFactor * ebt * nd1/(100*volatility*sqrtt) #gamma * spot/100   
+            if "vega" in output: res["vega"] = discountFactor * forward*nd1*sqrtt/100.0
+            if "theta" in output:
+                r = math.log(discountFactor)/-ttm
+                term1 = discountFactor*forward * nd1 * volatility/(2.0*sqrtt)
+                term2 = flag*(costOfCarry-r)*discountFactor*forward*Nd1f
+                term3 = flag*r*strike*discountFactor*Nd2f
+                res["theta"] = -(term1+term2+term3)/365    
+            if "rho" in output: res["rho"] = 0.01*flag*ttm*strike*discountFactor*Nd2f
+            if "carryRho" in output: res["carryRho"] = 0.01*flag*ttm*forward*discountFactor*Nd1f
+            if "d1" in output: res["d1"] = d1
+            if "d2" in output: res["d2"] = d2            
+            
+            if len(res.keys()) == 1:
+                return [value for _,value in res.items()][0]    
+            else:
+                return res
         else:
             return price
 
