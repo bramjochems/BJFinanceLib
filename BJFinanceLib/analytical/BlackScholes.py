@@ -92,30 +92,31 @@ def GeneralizedBlackScholes(flag=None,spot=None,strike=None,volatility=None,
         price = discountFactor*(flag*forward*Nd1f - flag * strike * Nd2f)
         
         if not calibration and output:
-            if not ttm=0.
-            sqrtt = math.sqrt(ttm)
-            res = {}
-            nd1 = ss.norm.pdf(d1)
-            if "price" in output: res["price"] = price
-            if "delta" in output: res["delta"] = flag * ebt * discountFactor * Nd1f
-            if "gamma" in output: res["gamma"] = discountFactor * ebt * nd1/(spot*volatility*sqrtt)
-            if "gammaP" in output: res["gammaP"] = discountFactor * ebt * nd1/(100*volatility*sqrtt) #gamma * spot/100   
-            if "vega" in output: res["vega"] = discountFactor * forward*nd1*sqrtt/100.0
-            if "theta" in output:
-                r = math.log(discountFactor)/-ttm
-                term1 = discountFactor*forward * nd1 * volatility/(2.0*sqrtt)
-                term2 = flag*(costOfCarry-r)*discountFactor*forward*Nd1f
-                term3 = flag*r*strike*discountFactor*Nd2f
-                res["theta"] = -(term1+term2+term3)/365    
-            if "rho" in output: res["rho"] = 0.01*flag*ttm*strike*discountFactor*Nd2f
-            if "carryRho" in output: res["carryRho"] = 0.01*flag*ttm*forward*discountFactor*Nd1f
-            if "d1" in output: res["d1"] = d1
-            if "d2" in output: res["d2"] = d2            
-            
-            if len(res.keys()) == 1:
-                return [value for _,value in res.items()][0]    
-            else:
-                return res
+            if not ttm <=0.0:
+                sqrtt = math.sqrt(ttm)
+                res = {}
+                nd1 = ss.norm.pdf(d1)
+                if "price" in output: res["price"] = price
+                if "delta" in output: res["delta"] = flag * ebt * discountFactor * Nd1f
+                if "gamma" in output: res["gamma"] = discountFactor * ebt * nd1/(spot*volatility*sqrtt)
+                if "gammaP" in output: res["gammaP"] = discountFactor * ebt * nd1/(100*volatility*sqrtt) #gamma * spot/100   
+                if "vega" in output: res["vega"] = discountFactor * forward*nd1*sqrtt/100.0
+                if "theta" in output:
+                    r = math.log(discountFactor)/-ttm
+                    term1 = discountFactor*forward * nd1 * volatility/(2.0*sqrtt)
+                    term2 = flag*(costOfCarry-r)*discountFactor*forward*Nd1f
+                    term3 = flag*r*strike*discountFactor*Nd2f
+                    res["theta"] = -(term1+term2+term3)/365    
+                if "rho" in output: res["rho"] = 0.01*flag*ttm*strike*discountFactor*Nd2f
+                if "carryRho" in output: res["carryRho"] = 0.01*flag*ttm*forward*discountFactor*Nd1f
+                if "d1" in output: res["d1"] = d1
+                if "d2" in output: res["d2"] = d2            
+                
+                if len(res.keys()) == 1:
+                    return [value for _,value in res.items()][0]    
+                else:
+                    return res
+            else: return 0.
         else:
             return price
 

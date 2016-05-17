@@ -1,13 +1,37 @@
 # -*- coding: utf-8 -*-
 
-import BJFinanceLib.montecarlo.rng as rng
+import BJFinanceLib.montecarlo.rng as Randoms
 import numpy as np
 
 class UnivariateGBMGenerator:
     """
     Path generator for single underlying geometric brownian motion
     """
-    def __init__(self,spot,drift,volatility,sampleTimes):
+    def __init__(self,spot,drift,volatility,sampleTimes,rng=None):
+        """
+        Constructor.
+
+        Arguments:
+            - spot: a scalar that defines the spot of the class
+            - drift : either a scalar or a callable object that returns an
+                      annualized drift rate when called for a time t
+            - volatility : either a scalar or a callable object that returns an
+                           annualized volatility when called for a time t
+            - sampleTimes : points for which values at the path are necessary.
+                            Must be an iterable.
+            - rng: Random number generator to use. Optional, if none specified,
+                   an antithetic generator based on numpy is used. On this
+                   object, a call is made to a method 'getNormals', which
+                   returns an array of standard normally distributed randoms.
+                   
+        Returns: A random path. This path will be sampled at t=0 (with value 
+                 spot) followed by all times in sampleTimes. Note that
+                 sampleTimes is sanitized first by removing dupes and
+                 non-positive entries, as well as by sorting, so if it wasn't
+                 sane to start with, the return array maybe of unexpected
+                 length or ordering.
+        """
+        
         sampleTimes = self._preprocessSampleTimes(sampleTimes)
         # tuples of the form (0,t1), (t1,t2),..,(t(n-1),tn) for all sampleTimes        
         timeIntervals = list(zip([0] + sampleTimes[:-1],sampleTimes)) # gets iterated over twice, make it a list
@@ -26,10 +50,16 @@ class UnivariateGBMGenerator:
             forwardVariance = [v2*(t2-t1) for (t1,t2) in timeIntervals]            
         forwardVariance = np.array(forwardVariance)
         
+        # Handle default case for rng
+        if rng:
+            rng =  rng
+        else:
+            rng = Randoms.OneDimensionalAntitheticRNG(self.numberOfFuturePoints)           
+        
         # Set all the class attributes
         self.spot = spot        
-        self.numberOfFuturePoints = len(sampleTimes)
-        self._rng = rng.OneDimensionalAntitheticRNG(self.numberOfFuturePoints)        
+        self.numberOfFuturePoints = len(sampleTimes) 
+        self._rng = rng
         self.forwardVols = np.sqrt(forwardVariance)
         self.itoCorrectedDrifts = forwardDrifts*np.exp(-0.5*forwardVariance)            
 
