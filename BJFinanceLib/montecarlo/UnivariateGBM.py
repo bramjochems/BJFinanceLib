@@ -4,7 +4,6 @@ from numbers import Number
 import BJFinanceLib.montecarlo.rng as Randoms
 import numpy as np
 
-
 class UnivariateGBMGenerator:
     """
     Path generator for single underlying geometric brownian motion
@@ -20,7 +19,8 @@ class UnivariateGBMGenerator:
             - volatility : either a scalar or a callable object that returns an
                            annualized volatility when called for a time t
             - sampleTimes : points for which values at the path are necessary.
-                            Must be an iterable.
+                            Note that this must be sane (ordered, no dupes, all
+                            values positive).
             - rng: Random number generator to use. Optional, if none specified,
                    an antithetic generator based on numpy is used. On this
                    object, a call is made to a method 'getNormals', which

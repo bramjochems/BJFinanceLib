@@ -53,7 +53,7 @@ class MultidimensionalRNG:
     in production level code where other parts of an application might depend
     on it too.
     """
-    def init__(self,numberOfRows,numberOfColumns=1,seed=None):
+    def __init__(self,numberOfRows,numberOfColumns=1,seed=None):
         self.numberOfRows = numberOfRows
         self.numberOfColumns = numberOfColumns
         self.hasSeed = not (seed==None)
