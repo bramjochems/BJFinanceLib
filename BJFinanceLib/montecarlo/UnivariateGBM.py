@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
 
+from numbers import Number
 import BJFinanceLib.montecarlo.rng as Randoms
 import numpy as np
+
 
 class UnivariateGBMGenerator:
     """
@@ -32,9 +34,12 @@ class UnivariateGBMGenerator:
                  length or ordering.
         """
         
-        sampleTimes = self._preprocessSampleTimes(sampleTimes)
-        # tuples of the form (0,t1), (t1,t2),..,(t(n-1),tn) for all sampleTimes        
+        if isinstance(sampleTimes,Number): sampleTimes = [sampleTimes]
+        sampleTimes = self._preprocessSampleTimes(sampleTimes)        
         timeIntervals = list(zip([0] + sampleTimes[:-1],sampleTimes)) # gets iterated over twice, make it a list
+        self.spot = spot        
+        self.sampleTimes = [0] + sampleTimes       
+        self.numberOfFuturePoints = len(sampleTimes) 
         
         # determine forward drifts
         if hasattr(drift,'__call__'):
@@ -56,13 +61,10 @@ class UnivariateGBMGenerator:
         else:
             rng = Randoms.OneDimensionalAntitheticRNG(self.numberOfFuturePoints)           
         
-        # Set all the class attributes
-        self.spot = spot        
-        self.numberOfFuturePoints = len(sampleTimes) 
         self._rng = rng
         self.forwardVols = np.sqrt(forwardVariance)
         self.itoCorrectedDrifts = forwardDrifts*np.exp(-0.5*forwardVariance)            
-
+    
     def _preprocessSampleTimes(self,sampleTimes):
         return [t for t in sorted(sampleTimes) if t > 0]
         

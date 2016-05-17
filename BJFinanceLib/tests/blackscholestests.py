@@ -49,3 +49,15 @@ class ValueTests(TestCase):
     
     def OptionVegasAreAsExpected(self):
         pass
+    
+    def NonPositiveTtmGivesZero(self):
+        pass
+    
+    def NegativeSpotGivesError(self):
+        pass
+    
+    def NegativeVolatilityGivesError(self):
+        pass
+    
+    def NegativeDiscountFactorGivesError(self):
+        pass
