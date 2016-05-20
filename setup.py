@@ -15,7 +15,7 @@ setup(name='BJFinanceLib',
 	  keywords='finance, quant, black-scholes, options',
 	  install_requires=[
           'numpy',
-	    'scipy',
+	      'scipy',
           'pandas'
       ],
       zip_safe=False,
