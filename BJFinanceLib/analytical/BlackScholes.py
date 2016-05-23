@@ -46,10 +46,8 @@ def GeneralizedBlackScholes(flag=None,spot=None,strike=None,volatility=None,
         - discountFactor : discountFactor associated with the ttm
         - costOfCarry : costOfCarry as a continuous yield
         - price: the price to use when solving for another paramter
-        - output: a list of outputs that can be request. If output=None, then
-                  it is substituted by a list containing t he field ['value'].
-                  Other arguments that can be entered into, or added to this
-                  list are delta, gamma, vega, gammaP, theta, rho, carryRho,
+        - output: Argguments that can be entered into, or added to this list
+                  are price, delta, gamma, vega, gammaP, theta, rho, carryRho,
                   d1, d2.
                   A few remarks on those:
                   - vega, rho, carryRho for a 1% (absolute) change in the
