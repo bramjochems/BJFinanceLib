@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 import scipy.special as ss
 
+
 def population_stdev_correction(samplesize):
     """
     Calculates the multiplicative adjustment that must be made to a sample
@@ -30,7 +31,8 @@ def population_stdev_correction(samplesize):
         return np.sqrt(helper)*ss.gamma(helper-0.5)/ss.gamma(helper)
     else:
         raise ValueError('Samplesize <= 1 encountered in population_stdev_correction')
-        
+
+       
 def estimator_Parkinson(hilo_df,colname_low='lo',colname_high='hi',annfactor=np.sqrt(252)):
     """ Estimates volatility using hi and lo prices
     
@@ -53,6 +55,7 @@ def estimator_Parkinson(hilo_df,colname_low='lo',colname_high='hi',annfactor=np.
     """
     hilo_returns = np.log(hilo_df[colname_high]/hilo_df[colname_low])
     return max(0,annfactor)*np.sqrt(np.mean(hilo_returns*hilo_returns)/(4*np.log(2)))
+
 
 def estimator_GarmanKlass(ohlc_df,
                           colname_open='open',
@@ -85,7 +88,8 @@ def estimator_GarmanKlass(ohlc_df,
     hl = np.log(ohlc_df[colname_high]/ohlc_df[colname_low])
     cl = np.log(ohlc_df[colname_close]/ohlc_df[colname_open])
     return max(0,annfactor)*np.sqrt(np.mean(0.5*hl*hl-(2*np.log(2)-1)*cl*cl))
-                   
+ 
+                  
 def estimator_RogersSatchellYoon(ohlc_df,
                                   colname_open='open',
                                   colname_low='lo',
@@ -118,6 +122,7 @@ def estimator_RogersSatchellYoon(ohlc_df,
     lc = np.log(ohlc_df[colname_low]/ohlc_df[colname_close])
     lo = np.log(ohlc_df[colname_low]/ohlc_df[colname_open])
     return max(0,annfactor)*np.sqrt(np.mean(hc*ho+lc*lo))    
+    
     
 def estimator_YangZhang(ohlc_df,
                         colname_open='open',
@@ -157,7 +162,8 @@ def estimator_YangZhang(ohlc_df,
     lo = np.log(ohlc_df[colname_low]/ohlc_df[colname_open])
     sr = np.sum(hc*ho+lc*lo)
     return max(0,annfactor)*np.sqrt((so+k*sc+(1-k)*sr)/(N-1.0))
-        
+  
+    
 def volatilitycone(data,
                    estimator,
                    windows,
