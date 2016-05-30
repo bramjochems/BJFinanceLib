@@ -181,7 +181,14 @@ class YieldCurve(ABC):
         rate1 = self.interest_rate(ttm1)
         rate2 = self.interest_rate(ttm2)
         return ForwardRate(rate1,ttm1,rate2,ttm2,self.compounding_frequency)
-        
+    
+    def __add__(self,other):
+        """ Adds two yield curves to form a new one """
+        return YieldCurveSum(self,other,
+                             referenceDate=self.reference_date,
+                             dayCounter= self.daycounter,
+                             compoundingFrequency=self.compounding_frequency)
+       
 class YieldCurveOnDF(YieldCurve):
     """ Yield curve object that does interpolation on discountfactors """
     def __init__(self,
@@ -290,7 +297,7 @@ class YieldCurveOnIR(YieldCurve):
                               specified. Optional. If none, infinite is assumed
                               meaning continuous compounding. 
         """
-        super(YieldCurveOnDF,self).__init__(referenceDate,dayCounter,compoundingFrequency)
+        super(YieldCurveOnIR,self).__init__(referenceDate,dayCounter,compoundingFrequency)
         
         self.defining_points = definingPoints
         """ The points - if any - on which interpolation occures """
@@ -327,3 +334,111 @@ class YieldCurveOnIR(YieldCurve):
             base class method for determining interest rates linked to df's """
         ttm = self._ttm(date)
         return self._interpolator(ttm)
+        
+class YieldCurveTriangle(YieldCurve):
+    """
+    Yield curve that is flat with the exception of a 'triangle' where it
+    assumes a value. Useful for calculating sensitivities.
+    """
+    def __init__(self, xMid, yMid = 0.001, xLeft=None, yLeft=0, xRight=None,
+                 yRight=0, referenceDate=None, dayCounter=None,
+                 compoundingFrequency=None):    
+        """
+        Constructor for YieldCurveTriangle class. This class is a yieldcurve
+        with the following interest rate profile:
+        t <= xLeft, a value yLeft is assumed. For xLeft < t < xMid, a linear
+        interpolation between yLeft and yMid is done. For xMid <= t < xRight,
+        linear interpolation between yMid and yRight is done. for t >= xRight,
+        yRight is assumed.
+        
+        Arguments:
+        xLeft : the left-cutoff point for defining the bump. If left out,
+                it is assumed that yLeft = yMid.
+        yLeft: the value that the curve takes on to the left of xLeft.
+               Optional, default=0 when xLeft is specified and if xLeft
+                is None, then this defaults to xMid.
+        xMid: the value where the triangle peak is located
+        yMid: the value of the peak of the triangle. Optional, default =
+              0.001 (10 basis points)
+        xRight: the right cutoff point for defining the bump. If left out,
+                it is assumed that yRight = yMid
+        yRight: the value that the cuves takes on to the right of xRight.
+                Optional, default=0 when xRight is specified and if xRight
+                is None, then this defaults to xMid.
+        referenceDate: reference date for which the curve is. Optional, if None
+                       is specified, callling this class for an interest rate
+                       or discount factor for another date will return an error
+                       If this is specified, these function do work.
+        dayCounter: function that returns the difference between two dates as
+                    a yearfraction. Optional, if none is specified, a simple
+                    Act/365 is used.
+        compoundingFrequency: the compoundingFrequency at which the curve is
+                              specified. Optional. If none, infinite is assumed
+                              meaning continuous compounding.
+                          
+        Note that not specifying xLeft and xRight both leads to a parallel
+        shift. In such a case any value can be used for xMid.
+        """
+        super(YieldCurveTriangle,self).__init__(referenceDate,dayCounter,compoundingFrequency)
+        
+        pt1 = [(xLeft,yLeft)] if xLeft else []
+        pt2 = [(xMid,yMid)]
+        pt3 = [(xRight,yRight)] if xRight else []
+        self.defining_points = sorted(pt1+pt2+pt3)
+        """ The points that defing the triangle bump """
+        
+        x_old,y_old = zip(*self.defining_points)   
+        self._interpolator = lambda x: np.interp(x,x_old,y_old)        
+        """ interpolator object that is used internally """
+        
+    def _internal_df_calc(self,ttm):
+        """ Method that does the actual work of calculating a discount factor.
+            Implementation of the abstract method in the YieldCurve base class
+        """
+        ttm = self._ttm(ttm)
+        rate = self.interest_rate(ttm)
+        return YieldToDiscountFactor(rate,ttm,self.compounding_frequency)
+
+    def interest_rate(self,date):
+        """ Since this class interpolates on rates directly, override of the
+            base class method for determining interest rates linked to df's """
+        ttm = self._ttm(date)
+        return self._interpolator(ttm)
+        
+class YieldCurveSum(YieldCurve):
+    """
+    Yield curve object that is the sum of two other yieldcurves
+    """
+    
+    def __init__(self, curve1, curve2, referenceDate=None, dayCounter=None,
+                 compoundingFrequency=None): 
+        """
+        Instantiates a yield that is the sum of two yield curves. Note that
+        this object calls the discount factor methodology from each curve
+        seperately, but if there are differnece between the daycounters,
+        reference dates or compounding frequencies, results might be unexpected
+        
+        Arguments
+        curve1: first of the two curves to be added.
+        curve2: second curve added.
+        referenceDate: reference date for which the curve is. Optional, if None
+                       is specified, callling this class for an interest rate
+                       or discount factor for another date will return an error
+                       If this is specified, these function do work.
+        dayCounter: function that returns the difference between two dates as
+                    a yearfraction. Optional, if none is specified, a simple
+                    Act/365 is used.
+        compoundingFrequency: the compoundingFrequency at which the curve is
+                              specified. Optional. If none, infinite is assumed
+                              meaning continuous compounding. 
+        """
+        super(YieldCurveSum,self).__init__(curve1.reference_date,
+                                           curve1.daycounter,
+                                           curve1.compounding_frequency)
+                                           
+        self._basecurve=curve1
+        self._addcurve=curve2
+
+    def _internal_df_calc(self,ttm):
+        """ Method that does the actual work of calculating a discount factor """
+        return self._basecurve._internal_df_calc(ttm) * self._addcurve._internal_df_calc(ttm)
