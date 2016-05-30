@@ -52,9 +52,19 @@ class PCA():
         self.__pca = sd.PCA(varianceToKeep or numberOfComponents).fit(self.__data)
 
         self.explained_variance = self.__pca.explained_variance_
+        """ Explained variance for each component"""
+        
         self.explained_variance_ratio = self.__pca.explained_variance_ratio_
-        self.loadings = self.__pca.components_
+        """ Explained variance for each component as percentage of total variance"""
+
+        self.loadings = self.__pca.components_.T
+        """ The weight by which each standardized original variable should be
+        multiplied to get the component score. Note that original data *
+        loadings returns scores if data is normalized, otherwise the difference
+        is a constant per column."""
+        
         self.scores = self.__pca.transform(self.__data)
+        """ The transformed data points associated with the input data """
         
     def score(self,data):
         """
@@ -65,8 +75,8 @@ class PCA():
                    PCA object has standardizeInput set to True, it will
                    standardize this data too, otherwise it won't.
         Returns:
-            Scores of the new data based on the PCA of the data this class was
-            instantidated with.
+            Coordinates of the new data in the basis of the PCA of the data
+            this class was instantiated with.
         """
         std_data = data if not self.__standardizeInputs else StandardScaler().fit_transform(data)
         return self.__pca.transform(std_data)
