@@ -202,7 +202,8 @@ class YieldCurveOnDF(YieldCurve):
                       new x value as input, effectively allowing a parametric
                       discount factor specification. If the interpolator is set
                       to None and definingPionts are provided, piecewise linear
-                      interpolation is used.
+                      interpolation is used (which migth give unexpected
+                      results when extrapolating.)
         definingPoints: points on which interpolation happens. Should be of the
                         form of an interable of tuples, where the first element
                         is a date of a time to maturity and the second is a
@@ -236,7 +237,7 @@ class YieldCurveOnDF(YieldCurve):
             seen = set()
             points = [item for item in definingPoints if item[1] not in seen and not seen.add(item[1])]
             x_old,y_old = list(zip(*sorted(points)))
-            x_old = [self._ttm(self.reference_date,x) for x in x_old]
+            x_old = [self._ttm(x) for x in x_old]
             
             if interpolator:                    
                 self._interpolator = lambda x: interpolator(x_old,y_old,x)
@@ -270,7 +271,8 @@ class YieldCurveOnIR(YieldCurve):
                       new x value as input, effectively allowing a parametric
                       discount factor specification. If the interpolator is set
                       to None and definingPionts are provided, piecewise linear
-                      interpolation is used.
+                      interpolation is used (which migth give unexpected
+                      results when extrapolating.)
         definingPoints: points on which interpolation happens. Should be of the
                         form of an interable of tuples, where the first element
                         is a date of a time to maturity and the second is a
@@ -304,7 +306,7 @@ class YieldCurveOnIR(YieldCurve):
             seen = set()
             points = [item for item in definingPoints if item[1] not in seen and not seen.add(item[1])]
             x_old,y_old = list(zip(*sorted(points)))
-            x_old = [self._ttm(self.reference_date,x) for x in x_old]
+            x_old = [self._ttm(x) for x in x_old]
             
             if interpolator:                 
                 self._interpolator = lambda x: interpolator(x_old,y_old,x)
