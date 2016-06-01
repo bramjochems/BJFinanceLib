@@ -2,7 +2,7 @@
 """
 Shift lognormal (and anti-lognormal with the right paramer choices) valuation
 """
-from BJFinanceLib.analytical.blackscholes import GeneralizedBlackScholes
+from BJFinanceLib.optionpricing.analytical.blackscholes import GeneralizedBlackScholes
 import scipy.optimize as opt
 
 def ShiftedLogNormal(flag=None,forward=None,shift=None,strike=None,

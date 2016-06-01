@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-import BJFinanceLib.montecarlo.rng as Randoms
+import BJFinanceLib.simulation.rng as Randoms
 from numbers import Number
 import numpy as np
 from scipy.linalg import cholesky
