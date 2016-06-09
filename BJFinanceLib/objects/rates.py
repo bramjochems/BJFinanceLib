@@ -86,7 +86,8 @@ class YieldCurve(ABC):
     def __init__(self,
                  referenceDate=None,
                  dayCounter=None,
-                 compoundingFrequency=None):
+                 compoundingFrequency=None,
+                 returnOnCall='yield'):
         """ Constructor for base class for yield curves.
         
         Arguments:
@@ -100,6 +101,9 @@ class YieldCurve(ABC):
         compoundingFrequency: the compoundingFrequency at which the curve is
                               specified. Optional. If none, infinite is assumed
                               meaning continuous compounding.
+        returnOnCall: either 'yield'  or 'discount_factor'. Determines whether
+                      calling the object as a function returns a yield or a
+                      discount factor
         """
 
         self._accept_dates = referenceDate and isinstance(referenceDate,datetime.date)        
@@ -114,6 +118,9 @@ class YieldCurve(ABC):
             
         self.compounding_frequency = compoundingFrequency or inf
         """ compounding frequency for the curve """
+    
+        self.return_on_call = returnOnCall.lower().replace('_','').replace(' ','')
+        """ Determines what the curve returns if object is called as a function"""
     
     @abstractmethod
     def _internal_df_calc(self,ttm):
@@ -181,6 +188,14 @@ class YieldCurve(ABC):
         rate1 = self.interest_rate(ttm1)
         rate2 = self.interest_rate(ttm2)
         return ForwardRate(rate1,ttm1,rate2,ttm2,self.compounding_frequency)
+    
+    def __call__(self,date):
+        """ Calling object as function returns  either yield or rate, depending
+            on how object is configured in the return_on_call property """
+        if self.return_on_call in ['yield','rate','ir','interestrate']:
+            return self.interest_rate(date)
+        else:
+            return self.discount_factor(date)
     
     def __add__(self,other):
         """ Adds two yield curves to form a new one """
@@ -442,59 +457,3 @@ class YieldCurveSum(YieldCurve):
     def _internal_df_calc(self,ttm):
         """ Method that does the actual work of calculating a discount factor """
         return self._basecurve._internal_df_calc(ttm) * self._addcurve._internal_df_calc(ttm)
-        
-class YieldCurveRepository():
-    """ Class that centrally stores yield curves"""
-    
-    _allowed_frequences_str =  ['ois','OIS','1m','3m','6m','12m','1M','3M','6M','12M']  
-    _allowed_frequencies_int =  [0,1,3,6,12]
-        
-    def __init__(self):
-        self._curves = dict()
-        
-    @staticmethod
-    def _freq_to_string(freq):
-        if freq in YieldCurveRepository._allowed_frequencies_int:
-            if freq == 0:
-                return 'OIS'
-            else:
-                return str(freq) + 'M'
-        elif freq in YieldCurveRepository._allowed_frequencies_str:
-            return freq.upper()
-        else:
-            raise Exception("Invalid curve frequency")
-        
-    def register(self,currency,frequency,curve):
-        """ registers a curve for a given currency and frequency with the
-            repository.
-            
-            Arguments
-            currency - currency for which the curve is
-            frequency - frequency/description for the curve, allowed values are
-                        in the _allowed_frequencies_str and
-                        _allowed_frequencies_int class attributes
-            curve - interest rate curve to be registered
-        """
-        if not currency in self._curves.keys():
-            self._curves[currency] = dict()
-        freq = self._freq_to_string(frequency)
-        self._curves[currency][freq] = curve
-        
-    def currencies(self):
-        """ Provides a list of all currencies available """
-        return list(self._curves.keys())    
-        
-    def curves_for_currency(self,currency):
-        """ Provides a list of all curves available for a given currency """
-        if currency in self._curves.keys():
-            return list(self._curves[currency].keys())
-        else:
-            return []
-            
-    def retrieve_curve(self,currency,frequency):
-        """ Returns a curve for given currency and frequency """
-        try:
-            freq = self._freq_to_string(frequency)
-            return self._curves[currency][freq]
-        except:
-            return None
