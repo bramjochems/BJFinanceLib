@@ -10,7 +10,7 @@ from BJFinanceLib.objects.swapschedule import SwapSchedule
 
 class SwapLeg(ABC):
 
-    def __init__(self,notional,schedule,currency,dayCounter=None):
+    def __init__(self,notional,schedule,currency=None,dayCounter=None):
         """ Initializes IRSLeg
         
         Arguments
@@ -64,7 +64,7 @@ class SwapLeg(ABC):
         dates, cashflows = zip(*datedCashFlows)
         return CashflowSchedule(dates,cashflows,self.currency)
     
-    def present_value(self,referenceDate, discountFunction):
+    def present_value(self,referenceDate,discountFunction):
         """ Calculates the present value of a swap leg on a given reference
             date and discount function.
             
@@ -74,14 +74,14 @@ class SwapLeg(ABC):
                                 date the discountfactor.
         """
         cashflowSchedule = self.cashflow_schedule(referenceDate)
-        pvs = [discountFunction(date)*amount for
+        pvs = [self.discountFunction(date)*amount for
                 (date,amount) in cashflowSchedule.dates_with_amounts.items()]
         return sum(pvs)
 
 
 class SwapLegFixed(SwapLeg):
     """ Represents a leg for a swap that has a fixed rate"""
-    def __init__(self,notional,schedule,currency,fixed_rate,dayCounter=None):
+    def __init__(self,notional,schedule,fixed_rate,currency=None,dayCounter=None):
         """
         Arguments
            - notional : notional for the swap leg
@@ -95,13 +95,14 @@ class SwapLegFixed(SwapLeg):
         self.fixed_rate = fixed_rate
     
     def get_rate(self,startDate,endDate,referenceDate):
+        """ Returns the annualized fixed rate from startdate to enddate"""
         return self.fixed_rate
     
     
 class SwapLegFloating(SwapLeg):
     """ Represent a leg for a swap that has a floating amount with a spread
         added to it """
-    def __init__(self,notional,schedule,currency,yieldFunction,spread=0,dayCounter=None):
+    def __init__(self,notional,schedule,yieldFunction,spread=0,currency=None,dayCounter=None):
         """
         Arguments
            - notional : notional for the swap leg
@@ -115,14 +116,16 @@ class SwapLegFloating(SwapLeg):
         """
         super(SwapLegFloating,self).__init__(notional,schedule,currency,dayCounter)
     
-        self._floatingLegYieldFunction = yieldFunction    
+        self.floating_leg_yield_function = yieldFunction    
         """ function that calculates yield for each swap period"""
         
         self.spread = spread    
         """ annualized spread to be added to each swap period"""
     
     def get_rate(self,startDate,endDate,referenceDate):
-        yc = self._floatingLegYieldFunction
+        """ Retrieves the rate for a floating leg for a given period and
+            reference date"""
+        yc = self.floating_leg_yield_function
         if isinstance(yc,YieldCurve):
             return ForwardRate(yc.interest_rate(referenceDate,startDate),
                                self.daycounter(startDate),
