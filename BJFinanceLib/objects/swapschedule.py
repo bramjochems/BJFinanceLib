@@ -4,10 +4,8 @@ Created on Tue May 31 22:52:26 2016
 
 @author: Bram Jochems
 """
-from abc import ABC, abstractmethod
 import datetime
 from numbers import Number
-from BJFinanceLib.objects.cashflowschedule import CashflowSchedule
 
 class SwapSchedule():
     """ Object representing the seperate periods for a swap(leg). Each period
@@ -58,18 +56,26 @@ class SwapSchedule():
         
         start, end, settle = zip(*sorted(threeTuple))
         self.period_startdates = list(start)
+        """ list of start dates for each period """
         self.period_enddates = list(end)
+        """ list of enddates for each period """
+        
         self.period_settledates = list(settle)
+        """ list of settlement dates for each period """
+        
+        self.number_of_periods = len(start)
+        """ number of periods in the schedule """
 
     def __getitem__(self,index):
-        """ Returns the tuple (startdate,enddate,settlement date) for index"""
-        return (self.period_startdates(index),
-                self.period_enddates(index),
-                self.period_settledates(index))
+        """ Returns the tuple (startdate, enddate, settlement date) for index"""
+        return (self.period_startdates[index],
+                self.period_enddates[index],
+                self.period_settledates[index])
 
     def unsettled_periods(self,referenceDate):
         """ Returns all periods whose settlement date is larger than
-            referenceDate as a list of three tuples """
+            referenceDate as a list of three tuples. Returns a list of the
+            tuples of the form (startdate, enddate, settlementdate) """
         return [(start,end,settle) for
                     (start,end,settle) in zip(self.period_startdates,
                                               self.period_enddates,
