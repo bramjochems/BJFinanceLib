@@ -3,6 +3,7 @@
 from abc import ABC, abstractmethod
 import datetime
 from numbers import Number
+from numpy import inf
 from BJFinanceLib.objects.rates import YieldCurve, ForwardRate
 from BJFinanceLib.objects.cashflowschedule import CashflowSchedule
 from BJFinanceLib.objects.swapschedule import SwapSchedule
@@ -48,7 +49,7 @@ class SwapLeg(ABC):
             is used as default """
     
     @abstractmethod
-    def get_rate(self,startDate,endDate):
+    def get_rate(self,startDate,endDate,referenceDate):
         """ Method that returns the applicable swap rate for a swap leg for a
             period that starts at startDate and ends at endDate."""
         pass
@@ -58,7 +59,7 @@ class SwapLeg(ABC):
         dates = self.schedule.unsettled_periods(referenceDate)
         datedCashFlows = [(settle, self.daycounter(start,end) * 
                                    self.notional * 
-                                   self.get_rate(start,end))
+                                   self.get_rate(start,end,referenceDate))
                           for (start,end,settle) in dates]
         dates, cashflows = zip(*datedCashFlows)
         return CashflowSchedule(dates,cashflows,self.currency)
@@ -93,7 +94,7 @@ class SwapLegFixed(SwapLeg):
         super(SwapLegFixed,self).__init__(notional,schedule,currency,dayCounter)
         self.fixed_rate = fixed_rate
     
-    def get_rate(self,startDate,endDate):
+    def get_rate(self,startDate,endDate,referenceDate):
         return self.fixed_rate
     
     
@@ -115,22 +116,24 @@ class SwapLegFloating(SwapLeg):
         super(SwapLegFloating,self).__init__(notional,schedule,currency,dayCounter)
     
         self._floatingLegYieldFunction = yieldFunction    
-    
+        """ function that calculates yield for each swap period"""
+        
         self.spread = spread    
+        """ annualized spread to be added to each swap period"""
     
-    def get_rate(self,startDate,endDate):
+    def get_rate(self,startDate,endDate,referenceDate):
         yc = self._floatingLegYieldFunction
         if isinstance(yc,YieldCurve):
-            return ForwardRate(yc.interest_rate(startDate),
+            return ForwardRate(yc.interest_rate(referenceDate,startDate),
                                self.daycounter(startDate),
-                               yc.interest_rate(endDate),
-                               self.dayCounter(endDate),
+                               yc.interest_rate(referenceDate,endDate),
+                               self.daycounter(endDate),
                                yc.compounding_frequency) + self.spread
         elif hasattr(yc,'__call__'):
              return ForwardRate(yc(startDate),
-                               self.daycounter(startDate),
+                               self.daycounter(referenceDate,startDate),
                                yc(endDate),
-                               self.dayCounter(endDate),
-                               yc.compounding_frequency) + self.spread
+                               self.daycounter(referenceDate,endDate),
+                               inf) + self.spread
         else:
             raise 'Unsupported floating leg yield function in SwapLegFloating'
