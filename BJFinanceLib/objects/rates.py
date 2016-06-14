@@ -142,11 +142,11 @@ class YieldCurve(ABC):
             if self._accept_dates:
                 return self.daycounter(self.reference_date,date)
             else:
-                raise "Yieldcurve object doesn't accept dates as input"
+                raise Exception("Yieldcurve object doesn't accept dates as input")
         elif isinstance(date,Number):
             return date
         else:
-            raise "Unrecognized date type"
+            raise Exception("Unrecognized date type")
     
     def discount_factor(self,date):
         """ retrieves a discount factor for a given date

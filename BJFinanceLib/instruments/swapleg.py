@@ -27,7 +27,7 @@ class SwapLeg(ABC):
             try:
                 self.schedule = SwapSchedule(schedule)
             except:
-                raise 'Cannot process swap schedule'
+                raise Exception('Cannot process swap schedule for swap leg')
                 
         self.notional = notional
         """ Notional for the swap leg """
@@ -42,7 +42,7 @@ class SwapLeg(ABC):
             elif isinstance(first,Number):
                 return (second-first)
             else:
-                raise 'Unsupported type for default daycounter'
+                raise Exception('Unsupported type for default daycounter')
         
         self.daycounter = dayCounter or defaultDayCounter
         """ day counter for the curve. If non is specified, a simple Act/365
@@ -139,4 +139,4 @@ class SwapLegFloating(SwapLeg):
                                self.daycounter(referenceDate,endDate),
                                inf) + self.spread
         else:
-            raise 'Unsupported floating leg yield function in SwapLegFloating'
+            raise Exception('Unsupported floating leg yield function in SwapLegFloating')
