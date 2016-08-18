@@ -102,7 +102,7 @@ class UnivariateGBMGenerator:
         self.__forwardVols = np.sqrt(forwardVariance)
         self.__itoCorrectedDrifts = forwardDrifts*np.exp(-0.5*forwardVariance)            
         
-    def getPath(self):
+    def getPath(self,randomsToUse=None):
         """
         Generates a path for a one-dimensional geometric brownian motion
         """
@@ -112,14 +112,19 @@ class UnivariateGBMGenerator:
         # realization at time n.
         path = np.zeros(self.__numberOfFuturePoints+1)
         path[0] = self.spot
-        path[1:] = np.exp(self.__rng.getNormals()*self.__forwardVols)*self.__itoCorrectedDrifts
+        if randomsToUse==None:
+            randomsToUse = self.__rng.getNormals()
+        elif np.shape(randomsToUse) != np.shape(self.__forwardVols):
+            raise Exception('Incorrectly sized random numbes provided')
+        path[1:] = np.exp(randomsToUse*self.__forwardVols)*self.__itoCorrectedDrifts
         return np.cumprod(path)
         
         
 class MultivariateGBMGenerator:
     """
     Path generator for geometric brownian motion for multiple underlyings where
-    drift and volatility can be time-varying functions.
+    drift and volatility can be time-varying functions. All underlying must have
+    the same currency though, no quanto corrections are done here.
     """
     @staticmethod
     def __validateParams(spots,drifts,volatilities,correlations):
@@ -158,7 +163,7 @@ class MultivariateGBMGenerator:
         """
         
         sampleTimes = _preprocessSampleTimes(sampleTimes)        
-        timeIntervals = list(zip(sampleTimes[:-1],sampleTimes[:-1])) # gets iterated over twice, make it a list
+        timeIntervals = list(zip(sampleTimes[:-1],sampleTimes[1:])) # gets iterated over twice, make it a list
         self.__validateParams(spots,drifts,volatilities,correlations)                
         self.spots = spots  
         self.sampleTimes = sampleTimes       
@@ -185,9 +190,13 @@ class MultivariateGBMGenerator:
         self.__itoCorrectedDrifts = forwardDrifts*np.exp(-0.5*forwardVariance)                
 
         
-    def getPath(self):
+    def getPath(self,randomsToUse=None):
         """
         Generates a path for a one-dimensional geometric brownian motion
+        
+        Input:
+           - randomsToUse: optional. If not provided, the rng provided will be
+             used. If provided, these randoms will be used to calculate the path
         """
         # Preallocate array of length one more than the time points needed.
         # First element is zero. All other elements are the multiplicative
@@ -195,5 +204,9 @@ class MultivariateGBMGenerator:
         # realization at time n.
         path = np.zeros((self.__numberOfFuturePoints+1,self.numberOfUnderlyings))
         path[0,:] = self.spots
-        path[1:,:] = np.exp(np.dot(self.__rng.getUncorrelatedNormals(),self.CholeskyUpper)*self.__forwardVols)*self.__itoCorrectedDrifts
+        if randomsToUse==None:
+            randomsToUse = np.dot(self.__rng.getUncorrelatedNormals(),self.CholeskyUpper)
+        elif np.shape(randomsToUse) != np.shape(self.__forwardVols):
+            raise Exception('Incorrectly sized random numbes provided')
+        path[1:,:] = np.exp(randomsToUse*self.__forwardVols)*self.__itoCorrectedDrifts
         return np.cumprod(path,axis=0)
