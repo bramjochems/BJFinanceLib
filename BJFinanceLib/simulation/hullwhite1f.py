@@ -1,18 +1,12 @@
 # -*- coding: utf-8 -*-
 
-import BJFinanceLib.simulation.rng as Randoms
+
 from math import exp, sqrt
 from numbers import Number
 import numpy as np
 import scipy.interpolate as ip
-
-def _preprocessSampleTimes(sampleTimes):
-    """
-    Helper function that takes sample tiime points for a monte carlo routine as
-    input and 'sanitizes' it.
-    """
-    if isinstance(sampleTimes,Number): sampleTimes = [sampleTimes]
-    return [0] + [t for t in sorted(sampleTimes) if t > 0]
+import BJFinanceLib.simulation.rng as Randoms
+from BJFinanceLib.simulation.utils import preprocessSampleTimes, validateNumberParam
 
 class HullWhite1FGenerator:
     """
@@ -23,14 +17,7 @@ class HullWhite1FGenerator:
     So with a constant mean-reversion speed and volatility. The theta(t) term
     is used to fit a term structure.       
         
-    """
-    @staticmethod
-    def __validateParams(sigma,kappa):
-        if ( not isinstance(sigma,Number) or 
-             not isinstance(kappa,Number) or 
-             sigma <= 0 or 
-             kappa <=0):
-            raise Exception("Kappa and sigma must be > 0 for hull white model")    
+    """    
     
     def __init__(self,rates,kappa,sigma,sampleTimes,rng=None):
         """ Constructor
@@ -40,10 +27,11 @@ class HullWhite1FGenerator:
             - kappa : mean-reversion speed. Constant
             - sigma : volatility of the noise. Constant.
         """
-        self.__validateParams(sigma,kappa)
+        validateNumberParam(sigma,0)
+        validateNumberParam(kappa,0)
         self.kappa = kappa
         self.sigma = sigma
-        self.sampleTimes = _preprocessSampleTimes(sampleTimes)
+        self.sampleTimes = preprocessSampleTimes(sampleTimes)
         self.timeIntervals = list(zip(sampleTimes[:-1],sampleTimes[1:]))
         
         if rng==None:
@@ -60,18 +48,18 @@ class HullWhite1FGenerator:
             f = ip.interp1d(x,y,fill_value="extrapolate")
             self.rate = lambda t:1*f(t)         
 
-        self._stdvec = np.array([sqrt(self.variance(s,t)) for (s,t) in self.timeIntervals])
+        self._stdvec = np.array([self.stdev(s,t) for (s,t) in self.timeIntervals])
         self._weightvec = np.array([exp(-self.kappa*(t-s)) for (s,t) in self.timeIntervals])        
         self._alphavec = np.array([self.alpha(t) - 
                                    self.alpha(s)*exp(-self.kappa*(t-s)) for 
                                        (s,t) in self.timeIntervals])
         
-    def variance(self,s,t):
+    def stdev(self,s,t):
         """a
         Returns the variance of the noise term from time s to time t
         """
         if s < t:
-            return self.sigma**2/(2*self.kappa)*(1-exp(-2*self.kappa*(t-s)))        
+            return self.sigma*sqrt((1-exp(-2*self.kappa*(t-s)))/(2*self.kappa))        
         else:
             return 0
             
@@ -97,7 +85,6 @@ class HullWhite1FGenerator:
         class.
         
         """
-    
         if randomsToUse==None:
             randomsToUse = self.__rng.getNormals()
         elif np.shape(randomsToUse) != np.shape(self._stdvec):

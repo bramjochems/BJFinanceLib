@@ -1,17 +1,9 @@
 # -*- coding: utf-8 -*-
 
 import BJFinanceLib.simulation.rng as Randoms
-from numbers import Number
+from BJFinanceLib.simulation.utils import preprocessSampleTimes
 import numpy as np
 from scipy.linalg import cholesky
-
-def _preprocessSampleTimes(sampleTimes):
-    """
-    Helper function that takes sample tiime points for a monte carlo routine as
-    input and 'sanitizes' it.
-    """
-    if isinstance(sampleTimes,Number): sampleTimes = [sampleTimes]
-    return [0] + [t for t in sorted(sampleTimes) if t > 0]
 
 def _getForwardExpDriftArray(drift,timeIntervals):
     """
@@ -82,7 +74,7 @@ class UnivariateGBMGenerator:
                  length or ordering.
         """
     
-        sampleTimes = _preprocessSampleTimes(sampleTimes)        
+        sampleTimes = preprocessSampleTimes(sampleTimes)        
         timeIntervals = list(zip(sampleTimes[:-1],sampleTimes[1:])) # gets iterated over twice, make it a list
         self.spot = spot        
         self.sampleTimes = sampleTimes       
@@ -162,7 +154,7 @@ class MultivariateGBMGenerator:
                  of underlyings
         """
         
-        sampleTimes = _preprocessSampleTimes(sampleTimes)        
+        sampleTimes = preprocessSampleTimes(sampleTimes)        
         timeIntervals = list(zip(sampleTimes[:-1],sampleTimes[1:])) # gets iterated over twice, make it a list
         self.__validateParams(spots,drifts,volatilities,correlations)                
         self.spots = spots  
