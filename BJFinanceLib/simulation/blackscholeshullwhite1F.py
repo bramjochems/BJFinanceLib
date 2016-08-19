@@ -27,19 +27,26 @@ class UnivariateBlackScholesHullWhite1FGenerator:
            - correl: correlation between the equity and rates process
            - sampleTimes: times at which the process is to be sampled.
         """
-        
+        # Validation of parameters
         for (param,lb) in [(eq_spot,0), (eq_vol,0),(hw_kappa,0),(hw_sigma,0)]:
             validateNumberParam(param,lb)
         validateNumberParam(correl,-1,1)
         validateNumberParam(eq_divyield)
         
+        # Setting instance variables
         self.eq_spot = eq_spot
         self.eq_vol = eq_vol
         self.hw_kappa = hw_kappa
         self.rate_vol = hw_sigma
         self.correl = correl
         self.divyield = eq_divyield
+        self.sampleTimes = preprocessSampleTimes(sampleTimes)
+        self.timeIntervals = list(zip(self.sampleTimes[:-1],self.sampleTimes[1:]))
+        self._rng = Randoms.MultidimensionalRNG(len(self.timeIntervals),2)          
+        self._CholeksyUpper = cholesky(np.array[[1,self.correl],[self.correl,1]])
         
+        # processing input rate curve depending on what form it has (function,
+        # constant, list)
         if hasattr(rates,'__call__'):
             self.rate = rates
         elif isinstance(rates,Number):
@@ -49,20 +56,15 @@ class UnivariateBlackScholesHullWhite1FGenerator:
             f = ip.interp1d(x,y,fill_value="extrapolate")
             self.rate = lambda t:1*f(t)  
                
-        self.sampleTimes = preprocessSampleTimes(sampleTimes)
-        self.timeIntervals = list(zip(self.sampleTimes[:-1],self.sampleTimes[1:]))
-        self._rng = Randoms.MultidimensionalRNG(len(self.timeIntervals),2)          
-        self._CholeksyUpper = cholesky(np.array[[1,self.correl],[self.correl,1]])
-        
+ 
         # Precomputation of various quantities for efficiency reasons
         self._rate_vol_vec = [self._rate_vol(s,t) for (s,t) in self.timeIntervals] # volatility terms for time intervals
         self._mean_rev_vec = [self._mean_rev_factor(s,t) for (s,t) in self.timeIntervals] # mean reversion factor for x for time intervals
-
         self._eq_drift_vec = [ -self.divyield*(t-s) -0.5*self.eq_vol**2*(t-s) + 
                                 self._phi_integral(s,t) for (s,t) in self.timeIntervals]  # deterministic drift part on equity component 
         self._eq_xweight_vec = [(1-mrv)/self.kappa for mrv in self._mean_rev_vec] # weights for the x-vector (non-deterministic) drift part of equity componetn
         self._eq_vol_vec = [self._equity_vol(s,t) for (s,t) in self.timeIntervals] # weights for the vol from the equity process
-  
+        self._eq_vol_rate_vec = [self._equity_vol_rate_contribution(s,t) for (s,t) in self.timeIntervals] # Contribution of rate vol volatility for equity vol        
         self._phi_vec = [self.phi(t) for t in self.sampleTimes] #phi(t) for the various sample times
                  
     def _phi(self,t):
@@ -95,6 +97,14 @@ class UnivariateBlackScholesHullWhite1FGenerator:
             return self.eq_vol*sqrt(t-s)
         else:
             return 0.
+
+    def _equity_vol_rate_contribution(self,s,t):
+        if s < t:
+            return self.rate_vol/self.hw_kappa * sqrt(
+                        t-s-2*(1-exp(-self.hw_kappa*(t-s)))/self.hw_kappa + 
+                        (1-exp(-2*self.hw_kappa*(t-s)))/(2*self.hw_kappa))
+        else:
+            return 0
 
     def _mean_rev_factor(self,s,t):
         """ mean reversion factor from time s to t """
@@ -131,11 +141,10 @@ class UnivariateBlackScholesHullWhite1FGenerator:
         DlnS[0] = log(self.eq_spot)        
         for i in range(1,len(DlnS)):
             xpart = self._eq_xweight_vec[i-1]*x[i-1]
-            dpart = self._eq_drift_vec[i-1]
-            spart1 = self._eq_vol_vec[i-1]*randomsToUse[i-1]
-            spart2 = ... #TODO
-            DlnS[i] = xpart + dpart + spart1 + spart2
-        
+            dpart = self._eq_drift_vec[i-1]  #TODO: check
+            spart1 = self._eq_vol_vec[i-1]*randomsToUse[i-1,1]
+            spart2 = self._eq_vol_rate_vec[i-1]*randomsToUse[i-1,0]
+            DlnS[i] = xpart + dpart + spart1 + spart2      
         DS = np.exp(DlnS)
         S = np.cumprod(DS)       
         
