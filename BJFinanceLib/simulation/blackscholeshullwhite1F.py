@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from math import exp, sqrt
+from math import exp, sqrt, log
 from numbers import Number
 import numpy as np
 import scipy.interpolate as ip
@@ -38,6 +38,7 @@ class UnivariateBlackScholesHullWhite1FGenerator:
         self.hw_kappa = hw_kappa
         self.rate_vol = hw_sigma
         self.correl = correl
+        self.divyield = eq_divyield
         
         if hasattr(rates,'__call__'):
             self.rate = rates
@@ -50,19 +51,34 @@ class UnivariateBlackScholesHullWhite1FGenerator:
                
         self.sampleTimes = preprocessSampleTimes(sampleTimes)
         self.timeIntervals = list(zip(self.sampleTimes[:-1],self.sampleTimes[1:]))
+        self._rng = Randoms.MultidimensionalRNG(len(self.timeIntervals),2)          
+        self._CholeksyUpper = cholesky(np.array[[1,self.correl],[self.correl,1]])
         
-        self._rate_vol_vec = [self._rate_vol(s,t) for (s,t) in self.timeIntervals]
-        self._mean_rev_vec = [self._mean_rev_factor(s,t) for (s,t) in self.timeIntervals]
-        self._phi_vec = [self.phi(t) for t in self.sampleTimes]
-        
-        self._rng=Randoms.MultidimensionalRNG(len(self.timeIntervals),2)          
-        self._CholeksyUpper=cholesky(np.array[[1,self.correl],[self.correl,1]])    
-        
+        # Precomputation of various quantities for efficiency reasons
+        self._rate_vol_vec = [self._rate_vol(s,t) for (s,t) in self.timeIntervals] # volatility terms for time intervals
+        self._mean_rev_vec = [self._mean_rev_factor(s,t) for (s,t) in self.timeIntervals] # mean reversion factor for x for time intervals
+
+        self._eq_drift_vec = [ -self.divyield*(t-s) -0.5*self.eq_vol**2*(t-s) + 
+                                self._phi_integral(s,t) for (s,t) in self.timeIntervals]  # deterministic drift part on equity component 
+        self._eq_xweight_vec = [(1-mrv)/self.kappa for mrv in self._mean_rev_vec] # weights for the x-vector (non-deterministic) drift part of equity componetn
+        self._eq_vol_vec = [self._equity_vol(s,t) for (s,t) in self.timeIntervals] # weights for the vol from the equity process
+  
+        self._phi_vec = [self.phi(t) for t in self.sampleTimes] #phi(t) for the various sample times
+                 
     def _phi(self,t):
         """
         Returns phi(t) as defined by Brigo (e.g. page 884)
         """
         return self.rate(t) + (self.rate_vol*(1-exp(-self.kappa*t)))**2/(2*self.kappa**2)
+    
+    def _phi_integral(self,s,t):
+        """
+        Returns the integral of self._phi from s to t
+        """
+        if s >= t:
+            return 0
+        else:
+            pass #TODO
     
     def _rate_vol(self,s,t):
         """
@@ -72,6 +88,13 @@ class UnivariateBlackScholesHullWhite1FGenerator:
             return self.sigma*sqrt((1-exp(-2*self.kappa*(t-s)))/(2*self.kappa))       
         else:
             return 0
+            
+    def _equity_vol(self,s,t):
+        """ Standard deviation of equity noise term from time s to t """
+        if s < t:
+            return self.eq_vol*sqrt(t-s)
+        else:
+            return 0.
 
     def _mean_rev_factor(self,s,t):
         """ mean reversion factor from time s to t """
@@ -104,7 +127,17 @@ class UnivariateBlackScholesHullWhite1FGenerator:
         r = x + self._phi_vec # short rate path
         
         # Create stock path from x
-        S = np.zeros(len(self.sampleTimes))
+        DlnS = np.zeros(len(self.sampleTimes))
+        DlnS[0] = log(self.eq_spot)        
+        for i in range(1,len(DlnS)):
+            xpart = self._eq_xweight_vec[i-1]*x[i-1]
+            dpart = self._eq_drift_vec[i-1]
+            spart1 = self._eq_vol_vec[i-1]*randomsToUse[i-1]
+            spart2 = ... #TODO
+            DlnS[i] = xpart + dpart + spart1 + spart2
+        
+        DS = np.exp(DlnS)
+        S = np.cumprod(DS)       
         
         # Put r and S as two columsn next to each other and return them
         return np.column_stack([r,S])
