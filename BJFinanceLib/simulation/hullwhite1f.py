@@ -55,7 +55,7 @@ class HullWhite1FGenerator:
                                        (s,t) in self.timeIntervals])
         
     def stdev(self,s,t):
-        """a
+        """
         Returns the variance of the noise term from time s to time t
         """
         if s < t:
