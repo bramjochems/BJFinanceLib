@@ -15,8 +15,11 @@ class HullWhite1FGenerator:
         dr(t) = ( theta(t) - kappa r(t) )dt + sigma dW
         
     So with a constant mean-reversion speed and volatility. The theta(t) term
-    is used to fit a term structure.       
-        
+    is used to fit a term structure.
+    
+    This generator generates paths by directly numerically approximating the
+    SDE, rather than decomposing r(t) in an OU process and using some analytical
+    results known for it.
     """    
     
     def __init__(self,rates,kappa,sigma,sampleTimes,rng=None):
