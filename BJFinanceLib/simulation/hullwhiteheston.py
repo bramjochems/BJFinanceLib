@@ -147,9 +147,25 @@ class HullWhiteHestonGenerator():
         """
         self._precomputed['stockpath'] = {}
         self._precomputed['stockpath']['lnS0'] = log(self._inputs['equity_spot'])
-        self._precomputed['stockpath']['integral_phi'] = ...
-
-     
+        self._precomputed['stockpath']['integral_phi'] = np.array( 
+             [self._initial_rate(t)*t - self._initial_rate(s)*s +
+              0.5*(self._vthelper(0,t)-self.vt_helper(0,s)) for 
+                   (s,t) in list(zip(self.sample_times[:-1],self.sample_times[1:]))])
+    
+    def _vt_helper(self,t,T):
+        a = self._inputs['hullwhite_x_meanreversion']
+        b = self._inputs['hullwhite_y_meanreversion']
+        s = self._inputs['hullwhite_x_vol']
+        eta = self._inputs['hullwhite_y_vol']
+        rho = self._inputs['correl_x_y']
+        eat = exp(-a*(T-t))
+        ebt = exp(-b*(T-t))
+        part1 = (s/a)**2  * (T-t + 2*eat/a - 0.5*exp(-2*a*(T-t))/a - 1.5/a)
+        part2 = (eta/b)**2/ (T-t + 2*ebt/b - 0.5*exp(-2*b*(T-t))/b - 1.5/b)
+        part3 = 2*rho*s*eta/(a*b)*(T-t + (eat-1)/a + (ebt-1)/b - (eat*ebt-1)/(a+b))
+        return part1+part2+part3
+        
+    
     def _determine_cholesky_decomposition(self):
         """
         Cholesky decomposition for correlation matrix. Based on analytic
@@ -233,9 +249,17 @@ class HullWhiteHestonGenerator():
                               self._precomputed['stockpath']['integral_phi'])
         integral_sudu_helper = np.sqrt(0.5*(sigmapath[1:]+sigmapath[:-1])*dt)
         
+        K0,K1,K2 = ...
+        C42,C43,C44 = ...    
+        
+        randhelper = ... + ... + ...
+        
+        drifthelper = ...
+        
         res = np.zeros(len(self.sample_times))
-        res[0]  = self._precomputed['stockpath']['lnS0']       
-        pass
+        res[0]  = self._precomputed['stockpath']['lnS0']
+        res[1:] = integral_ru_helper + drifthelper + randhelper   
+        return np.cumsum(res)
     
     
     def _calculate_r_path(self,xpath,ypath):
