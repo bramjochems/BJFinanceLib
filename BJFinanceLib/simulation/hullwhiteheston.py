@@ -114,6 +114,8 @@ class HullWhiteHestonGenerator():
         self._initialize_sigma_params()
         self._initialize_xy_params()
         self._initialize_s_path_params()
+        self._initialize_phi()
+        
         
     def _initialize_sigma_params(self):
         """"
@@ -127,7 +129,7 @@ class HullWhiteHestonGenerator():
         self._precomputed['sigma_params']['s2_constant'] = [smean*omega**2*(1-edt)**2/(2*epsilon) for edt in exp_edt]
         self._precomputed['sigma_params']['s2_factor'] = [ omega**2*edt*(1-edt)/epsilon for edt in exp_edt]    
         self._precomputed['sigma_params']['m_constant'] = [smean*(1-edt) for edt in exp_edt]
-        self._precomputed['sigma_params']['m_factor'] = [edt for edt in exp_edt]       
+        self._precomputed['sigma_params']['m_factor'] = [edt for edt in exp_edt]
      
      
     def _initialize_xy_params(self):
@@ -140,6 +142,19 @@ class HullWhiteHestonGenerator():
             self._precomputed[name+'path']['stdev'] = [sqrt((self._inputs['hullwhite_'+name +'_vol']**2)*
                                                             (1-exp(-2*self._inputs['hullwhite_'+ name +'_meanreversion']*dt))/
                                                             (2*self._inputs['hullwhite_'+name+'_meanreversion'])) for dt in self._dt]
+     
+    def _initialize_phi(self):
+        """ Initializes the phi(t) of the G2++ model """
+        s = self._inputs['hullwhite_x_vol']
+        e = self._inputs['hullwhite_y_vol']
+        a = self._inputs['hullwhite_x_meanreversion']
+        b = self._inputs['hullwhite_y_meanreversion']
+        rho_xy = self._inputs['correl_x_y']
+        self._precomputed['phi_vector'] = [self.initial_rate(t) +
+                                           0.5*(s/a*(1-exp(-a*t)))**2 +
+                                           0.5*(e/b*(1-exp(-b*t)))**2 +
+                                           rho_xy*s*e/(a*b)*(1-exp(-a*t))*(1-exp(-b*t))
+                                                for t in self.sample_times] 
      
     def _initialize_s_path_params(self):
         """
@@ -244,17 +259,26 @@ class HullWhiteHestonGenerator():
     
     
     def _get_lnS_path(self,xpath,ypath,sigmapath,randoms):
+        """
+        Calculates the path for the log of the stock price
+        """
         dt = np.array(self._dt)
         integral_ru_helper = (0.5*(xpath[1:]+xpath[:-1]+ypath[1:]+ypath[:-1])*dt + 
                               self._precomputed['stockpath']['integral_phi'])
         integral_sudu_helper = np.sqrt(0.5*(sigmapath[1:]+sigmapath[:-1])*dt)
         
-        K0,K1,K2 = ...
-        C42,C43,C44 = ...    
-        
-        randhelper = ... + ... + ...
-        
-        drifthelper = ...
+        e = self._inputs['heston_vol_meanreversion_speed']        
+        w = self._inputs['heston_vol_of_vol']
+        sm= self._inputs['heston_vol_long_term']
+        rss = self._inputs['correl_stock_vol']
+        K0 = [-rss*e*sm*dt/w for dt in self._dt]
+        K1 = [0.5*dt*(rss*e/w-0.5) - rss/w for dt in self._dt]
+        K2 = [0.5*dt*(rss*e/w-0.5) + rss/w for dt in self._dt]
+        C42 = self._precomputed['cholesky'][1,3]
+        C43 = self._precomputed['cholesky'][2,3]
+        C44 = self._precomputed['cholesky'][3,3]
+        randhelper = (C42*randoms[:,1]+C43*randoms[:,2]+C44*randoms[:,3])*integral_sudu_helper
+        drifthelper = K0 + K1*sigmapath[:-1] + K2*sigmapath[1:]
         
         res = np.zeros(len(self.sample_times))
         res[0]  = self._precomputed['stockpath']['lnS0']
@@ -263,7 +287,7 @@ class HullWhiteHestonGenerator():
     
     
     def _calculate_r_path(self,xpath,ypath):
-        pass
+        return xpath + ypath + self._precompted['phi_vector']
     
     
     def get_path(self):
