@@ -54,7 +54,7 @@ class HullWhiteHestonGenerator():
                  eq_vol_longterm, eq_mean_reversion_speed,
                  hw_a, hw_sigma_short_rate, hw_b, hw_sigma_long_rate,
                  rho_x_y, rho_S_sigma, rho_S_x, rho_S_y, rho_sigma_x, rho_sigma_y,
-                 rates, sample_times)
+                 sample_times)
 
 
     def _initialize_initial_rates(self,rates):
@@ -76,9 +76,12 @@ class HullWhiteHestonGenerator():
 
     def _check_and_assign_input_parameter(self,description,value,
                                            lb=-np.inf,ub=np.inf):
-        validateNumberParam(value,lb,ub)
-        self._inputs['description'] = value
-        
+        try:
+            validateNumberParam(value,lb,ub)
+            self._inputs[description] = value
+        except:
+            raise Exception('Error while setting validating and setting ' + 
+                            description + ' to value ' + str(value))
 
     def _initialize_cached_values(self, eq_spot, eq_vol_initial,
                  eq_vol_longterm, eq_mean_reversion_speed, eq_vol_of_vol,
