@@ -35,13 +35,17 @@ class HullWhiteHestonGenerator():
     """
     Class to generate paths for a combined rates + equity process. For the
     rates process a G2++ model is used and a Heston process for the equities.
+    Based on http://dare.uva.nl/cgi/arno/show.cgi?fid=481155 (thesis from Laura
+    Khune)
     """
     def __init__(self, eq_spot, eq_vol_initial,
                  eq_vol_longterm, eq_mean_reversion_speed, eq_vol_of_vol,
                  hw_a, hw_sigma_short_rate, hw_b, hw_sigma_long_rate,
                  rho_x_y, rho_S_sigma, rho_S_x, rho_S_y, rho_sigma_x, rho_sigma_y,
                  rates, sample_times):
-        
+        """
+        Constructor. Doc to do.
+        """
         self.sample_times = preprocessSampleTimes(sample_times)
         self._dt = [t-s for (s,t) in list(zip(self.sample_times[:-1],self.sample_times[1:]))]
         self._rng = Randoms.MultidimensionalRNG(len(self._dt),4)
@@ -108,6 +112,8 @@ class HullWhiteHestonGenerator():
         self._precomputed = {}
         self._precomputed['cholesky'] = self._determine_cholesky_decomposition()
         self._initialize_sigma_params()
+        self._initialize_xy_params()
+        self._initialize_s_path_params()
         
     def _initialize_sigma_params(self):
         """"
@@ -122,7 +128,28 @@ class HullWhiteHestonGenerator():
         self._precomputed['sigma_params']['s2_factor'] = [ omega**2*edt*(1-edt)/epsilon for edt in exp_edt]    
         self._precomputed['sigma_params']['m_constant'] = [smean*(1-edt) for edt in exp_edt]
         self._precomputed['sigma_params']['m_factor'] = [edt for edt in exp_edt]       
-        
+     
+     
+    def _initialize_xy_params(self):
+        """
+        Intializes parameters for calculation of x and y paths for G2++ model
+        """
+        for name in ['x','y']:
+            self._precomputed[name+'path'] = {} 
+            self._precomputed[name+'path']['mean_rev'] = [exp(-self._inputs['hullwhite_'+name +'_meanreversion']*dt) for dt in self._dt]
+            self._precomputed[name+'path']['stdev'] = [sqrt((self._inputs['hullwhite_'+name +'_vol']**2)*
+                                                            (1-exp(-2*self._inputs['hullwhite_'+ name +'_meanreversion']*dt))/
+                                                            (2*self._inputs['hullwhite_'+name+'_meanreversion'])) for dt in self._dt]
+     
+    def _initialize_s_path_params(self):
+        """
+        Precomputes parameters needed when generating the stock path
+        """
+        self._precomputed['stockpath'] = {}
+        self._precomputed['stockpath']['lnS0'] = log(self._inputs['equity_spot'])
+        self._precomputed['stockpath']['integral_phi'] = ...
+
+     
     def _determine_cholesky_decomposition(self):
         """
         Cholesky decomposition for correlation matrix. Based on analytic
@@ -134,6 +161,7 @@ class HullWhiteHestonGenerator():
                               [self._inputs['correl_vol_y'],     self._inputs['correl_x_y'],     1,                              self._inputs['correl_stock_y']],
                               [self._inputs['correl_stock_vol'], self._inputs['correl_stock_x'], self._inputs['correl_stock_y'], 1                             ]])
         return cholesky(input_mat)
+
 
     def _get_correlated_randoms(self,randoms_to_use=None):
         """
@@ -147,6 +175,7 @@ class HullWhiteHestonGenerator():
             raise Exception('Random variables incorrectly dimensioned')
         return np.dot(randoms_to_use,self._precomputed['cholesky'])
     
+    
     def _get_sigma_path(self,randoms):
         """
         Generates a path for volatility for the Heston process using Andersen's
@@ -156,8 +185,8 @@ class HullWhiteHestonGenerator():
         res[0] = self._inputs['heston_vol_initial']
         uvec = np.uniform.random(size=len(self._dt))
         for (cntr,dt) in enumerate(self._dt):
-            s2 = res[cntr]*... + ...
-            m = res[cntr]*... + ...
+            s2 = res[cntr]*self._precomputed['sigma_params']['s2_factor'] + self._precomputed['sigma_params']['s2_constant'] 
+            m = res[cntr]*self._precomputed['sigma_params']['m_factor'] + self._precomputed['sigma_params']['m_constant'] 
             phi = s2/(m**2)
             if phi <= 1.5:
                 b2 = 2/phi - 1 + sqrt(2/phi)*sqrt(2/phi-1)
@@ -173,21 +202,45 @@ class HullWhiteHestonGenerator():
                 else:
                     res[cntr+1] = log((1-p)/(1-u))/beta
         return res
-    
+ 
+   
     def _get_ou_path(self,precomputed_mean_rev, precomputed_stdev, randoms):
-        pass
-    
+        """ Helper function for generating paths for x and y """
+        res = np.zeros(len(self.sample_times))
+        res[0] = 0
+        for (cntr,(m,s,random)) in enumerate(zip([precomputed_mean_rev,precomputed_stdev,randoms])):
+            res[cntr+1] = res[cntr]*m + s*random
+        return res
+   
+   
     def _get_x_path(self,randoms):
-        pass
-    
+        """ Generate path of x variable in G2++ model """
+        return self._get_ou_path(self._precomputed['xpath']['mean_rev'],
+                                 self._precomputed['xpath']['stdev'],
+                                 randoms)
+  
+  
     def _get_y_path(self,randoms):
-        pass
+        """ Generate path of y variable in G2++ model """
+        return self._get_ou_path(self._precomputed['ypath']['mean_rev'],
+                                 self._precomputed['ypath']['stdev'],
+                                 randoms)
+    
     
     def _get_lnS_path(self,xpath,ypath,sigmapath,randoms):
+        dt = np.array(self._dt)
+        integral_ru_helper = (0.5*(xpath[1:]+xpath[:-1]+ypath[1:]+ypath[:-1])*dt + 
+                              self._precomputed['stockpath']['integral_phi'])
+        integral_sudu_helper = np.sqrt(0.5*(sigmapath[1:]+sigmapath[:-1])*dt)
+        
+        res = np.zeros(len(self.sample_times))
+        res[0]  = self._precomputed['stockpath']['lnS0']       
         pass
+    
     
     def _calculate_r_path(self,xpath,ypath):
         pass
+    
     
     def get_path(self):
         """
@@ -206,5 +259,5 @@ class HullWhiteHestonGenerator():
         x_path = self._get_x_path(randoms[:,1])
         y_path = self._get_y_path(randoms[:,2])
         r_path = self._calculate_r_path(x_path,y_path)    
-        lnS_path = self._get_lnS_path(x_path,y_path,sigma_path,randoms[:,3])
+        lnS_path = self._get_lnS_path(x_path,y_path,sigma_path,randoms)
         return np.column_stack([r_path,sigma_path,np.exp(lnS_path),x_path,y_path])
