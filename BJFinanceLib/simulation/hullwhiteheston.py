@@ -23,10 +23,11 @@ PSEUDO-CODE:
      - retrieve r(t) path
      - retrieve ln S(t) path
 """
-from math import exp, sqrt
+from math import exp, sqrt, log
 from numbers import Number
 import numpy as np
 import scipy.interpolate as ip
+from scipy.linalg import cholesky
 import BJFinanceLib.simulation.rng as Randoms
 from BJFinanceLib.simulation.utils import preprocessSampleTimes, validateNumberParam
 
@@ -42,7 +43,7 @@ class HullWhiteHestonGenerator():
                  rates, sample_times):
         
         self.sample_times = preprocessSampleTimes(sample_times)
-        self._dt = list(zip(self.sample_times[:-1],self.sample_times[1:]))
+        self._dt = [t-s for (s,t) in list(zip(self.sample_times[:-1],self.sample_times[1:]))]
         self._rng = Randoms.MultidimensionalRNG(len(self._dt),4)
         self._initialize_initial_rates(rates)
         self._initialize_cached_values(eq_spot, eq_vol_initial,
@@ -106,50 +107,33 @@ class HullWhiteHestonGenerator():
         # deal with precomputation of other values.
         self._precomputed = {}
         self._precomputed['cholesky'] = self._determine_cholesky_decomposition()
-
+        self._initialize_sigma_params()
+        
+    def _initialize_sigma_params(self):
+        """"
+        Precomputes some parameters needed in the volatility path generation
+        """        
+        self._precomputed['sigma_params'] = {}
+        smean = self._inputs['heston_vol_long_term']
+        omega = self._inputs['heston_vol_of_vol']
+        epsilon = self._inputs['heston_vol_meanreversion_speed']
+        exp_edt = [exp(-epsilon*dt) for dt in self._dt]
+        self._precomputed['sigma_params']['s2_constant'] = [smean*omega**2*(1-edt)**2/(2*epsilon) for edt in exp_edt]
+        self._precomputed['sigma_params']['s2_factor'] = [ omega**2*edt*(1-edt)/epsilon for edt in exp_edt]    
+        self._precomputed['sigma_params']['m_constant'] = [smean*(1-edt) for edt in exp_edt]
+        self._precomputed['sigma_params']['m_factor'] = [edt for edt in exp_edt]       
+        
     def _determine_cholesky_decomposition(self):
         """
         Cholesky decomposition for correlation matrix. Based on analytic
         expressions rather than numerical approximation. Assumes as order for
         the randoms: sigma, x, y, lnS
         """
-        chol = np.zeros((4,4))
-        chol[0,0] = 1
-        chol[0,1] = self._inputs['correl_vol_x']
-        chol[0,2] = self._inputs['correl_vol_y']
-        chol[0,3] = self._inputs['correl_stock_vol']
-        helper = sqrt(1-self._inputs['correl_vol_x']**2)
-        chol[1,1] = helper
-        chol[1,2] = (self._inputs['correl_x_y'] - 
-                     self._inputs['correl_vol_x']*self._inputs['correl_vol_y'])/helper
-        chol[1,3] = (self._inputs['correl_stock_x'] - self._inputs['correl_stock_vol']*
-                                                       self._inputs['correl_vol_x'])/helper
-        helper3 = -1+self._inputs['correl_vol_x']**2
-        helper2 = (self._inputs['correl_vol_x']**2 +
-                   self._inputs['correl_vol_y']**2 +
-                        -2*self._inputs['correl_vol_x']*
-                           self._inputs['correl_vol_y']*
-                           self._inputs['correl_x_y'])
-                           
-        c33 = sqrt(1 + helper2/helper3)
-        #different than paper, think there is a mistake there!
-        helper4 =(-self._inputs['correl_stock_vol']*self._inputs['correl_vol_y'] +
-                   self._inputs['correl_vol_x']*self._inputs['correl_vol_y']*
-                                              self._inputs['correl_stock_x'] +
-                   self._inputs['correl_stock_vol']*self._inputs['correl_vol_x']*
-                                                  self._inputs['correl_x_y'] -
-                   self._inputs['correl_stock_x']*self._inputs['correl_x_y'] +
-                   self._inputs['correl_stock_y'] -
-                   self._inputs['correl_stock_y']*self._inputs['correl_vol_x']**2)
-        c43 = helper4/sqrt(helper3*(helper2+helper3))
-        c44 = sqrt(1 + self._inputs['correl_stock_vol']**2 +
-                   (self._inputs['correl_stock_x'] - self._inputs['correl_stock_vol']*
-                                                      self._inputs['correl_vol_x'])**2/helper3 + 
-                   (helper4**2)/(helper3*(helper2+helper3)))        
-        chol[2,2] = c33
-        chol[2,3] = c43
-        chol[3,3] = c44
-        return chol
+        input_mat = np.array([[1,                                self._inputs['correl_vol_x'],   self._inputs['correl_vol_y'],   self._inputs['correl_stock_vol']],
+                              [self._inputs['correl_vol_x'],     1,                              self._inputs['correl_x_y'],     self._inputs['correl_stock_x']],
+                              [self._inputs['correl_vol_y'],     self._inputs['correl_x_y'],     1,                              self._inputs['correl_stock_y']],
+                              [self._inputs['correl_stock_vol'], self._inputs['correl_stock_x'], self._inputs['correl_stock_y'], 1                             ]])
+        return cholesky(input_mat)
 
     def _get_correlated_randoms(self,randoms_to_use=None):
         """
@@ -162,10 +146,33 @@ class HullWhiteHestonGenerator():
         elif np.shape(randoms_to_use) != (len(self._dt),4):
             raise Exception('Random variables incorrectly dimensioned')
         return np.dot(randoms_to_use,self._precomputed['cholesky'])
-
     
     def _get_sigma_path(self,randoms):
-        pass
+        """
+        Generates a path for volatility for the Heston process using Andersen's
+        QE scheme.
+        """
+        res = np.zeros(len(self.sample_times))
+        res[0] = self._inputs['heston_vol_initial']
+        uvec = np.uniform.random(size=len(self._dt))
+        for (cntr,dt) in enumerate(self._dt):
+            s2 = res[cntr]*... + ...
+            m = res[cntr]*... + ...
+            phi = s2/(m**2)
+            if phi <= 1.5:
+                b2 = 2/phi - 1 + sqrt(2/phi)*sqrt(2/phi-1)
+                a = m / (1+b2)
+                b = sqrt(b2)
+                res[cntr+1] = a*(b+randoms[cntr])**2
+            else:
+                p = (phi-1)/(phi+1)
+                beta = (1-p)/m
+                u = uvec[cntr]
+                if u < p:
+                    res[cntr+1] = 0
+                else:
+                    res[cntr+1] = log((1-p)/(1-u))/beta
+        return res
     
     def _get_ou_path(self,precomputed_mean_rev, precomputed_stdev, randoms):
         pass
@@ -191,7 +198,8 @@ class HullWhiteHestonGenerator():
             - equity price
             - volatility path
             - x part of the G2++ process
-            - y part of the G2++ process
+            - y part of the G2++ process  
+        Based on QE scheme for Heston (see Andersen, 2008)
         """
         randoms = self._get_correlated_randoms();
         sigma_path = self._get_sigma_path(randoms[:,0])
