@@ -197,7 +197,7 @@ class MultivariateGBMGenerator:
         path = np.zeros((self.__numberOfFuturePoints+1,self.numberOfUnderlyings))
         path[0,:] = self.spots
         if randomsToUse==None:
-            randomsToUse = np.dot(self.__rng.getUncorrelatedNormals(),self.CholeskyUpper)
+            randomsToUse = np.dot(self.__rng.get_uncorrelated_normals(),self.CholeskyUpper)
         elif np.shape(randomsToUse) != np.shape(self.__forwardVols):
             raise Exception('Incorrectly sized random numbes provided')
         path[1:,:] = np.exp(randomsToUse*self.__forwardVols)*self.__itoCorrectedDrifts

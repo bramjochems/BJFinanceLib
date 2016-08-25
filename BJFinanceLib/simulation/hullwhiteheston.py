@@ -50,11 +50,10 @@ class HullWhiteHestonGenerator():
         self._dt = [t-s for (s,t) in list(zip(self.sample_times[:-1],self.sample_times[1:]))]
         self._rng = Randoms.MultidimensionalRNG(len(self._dt),4)
         self._initialize_initial_rates(rates)
-        self._initialize_cached_values(eq_spot, eq_vol_initial,
-                 eq_vol_longterm, eq_mean_reversion_speed,
+        self._initialize_cached_values( eq_spot, eq_vol_initial,
+                 eq_vol_longterm, eq_mean_reversion_speed, eq_vol_of_vol,
                  hw_a, hw_sigma_short_rate, hw_b, hw_sigma_long_rate,
-                 rho_x_y, rho_S_sigma, rho_S_x, rho_S_y, rho_sigma_x, rho_sigma_y,
-                 sample_times)
+                 rho_x_y, rho_S_sigma, rho_S_x, rho_S_y, rho_sigma_x, rho_sigma_y)
 
 
     def _initialize_initial_rates(self,rates):
@@ -153,7 +152,7 @@ class HullWhiteHestonGenerator():
         a = self._inputs['hullwhite_x_meanreversion']
         b = self._inputs['hullwhite_y_meanreversion']
         rho_xy = self._inputs['correl_x_y']
-        self._precomputed['phi_vector'] = [self.initial_rate(t) +
+        self._precomputed['phi_vector'] = [self._initial_rate(t) +
                                            0.5*(s/a*(1-exp(-a*t)))**2 +
                                            0.5*(e/b*(1-exp(-b*t)))**2 +
                                            rho_xy*s*e/(a*b)*(1-exp(-a*t))*(1-exp(-b*t))
@@ -167,21 +166,25 @@ class HullWhiteHestonGenerator():
         self._precomputed['stockpath']['lnS0'] = log(self._inputs['equity_spot'])
         self._precomputed['stockpath']['integral_phi'] = np.array( 
              [self._initial_rate(t)*t - self._initial_rate(s)*s +
-              0.5*(self._vthelper(0,t)-self.vt_helper(0,s)) for 
+              0.5*(self._vt_helper(0,t)-self._vt_helper(0,s)) for 
                    (s,t) in list(zip(self.sample_times[:-1],self.sample_times[1:]))])
     
     def _vt_helper(self,t,T):
-        a = self._inputs['hullwhite_x_meanreversion']
-        b = self._inputs['hullwhite_y_meanreversion']
-        s = self._inputs['hullwhite_x_vol']
-        eta = self._inputs['hullwhite_y_vol']
-        rho = self._inputs['correl_x_y']
-        eat = exp(-a*(T-t))
-        ebt = exp(-b*(T-t))
-        part1 = (s/a)**2  * (T-t + 2*eat/a - 0.5*exp(-2*a*(T-t))/a - 1.5/a)
-        part2 = (eta/b)**2/ (T-t + 2*ebt/b - 0.5*exp(-2*b*(T-t))/b - 1.5/b)
-        part3 = 2*rho*s*eta/(a*b)*(T-t + (eat-1)/a + (ebt-1)/b - (eat*ebt-1)/(a+b))
-        return part1+part2+part3
+        if T <= t:
+            return 0
+        else:
+            a = self._inputs['hullwhite_x_meanreversion']
+            b = self._inputs['hullwhite_y_meanreversion']
+            s = self._inputs['hullwhite_x_vol']
+            eta = self._inputs['hullwhite_y_vol']
+            rho = self._inputs['correl_x_y']
+            eat = exp(-a*(T-t))
+            ebt = exp(-b*(T-t))
+    
+            part1 = (s/a)**2  * (T-t + 2*eat/a - 0.5*exp(-2*a*(T-t))/a - 1.5/a)
+            part2 = (eta/b)**2/ (T-t + 2*ebt/b - 0.5*exp(-2*b*(T-t))/b - 1.5/b)
+            part3 = 2*rho*s*eta/(a*b)*(T-t + (eat-1)/a + (ebt-1)/b - (eat*ebt-1)/(a+b))
+            return part1+part2+part3
         
     
     def _determine_cholesky_decomposition(self):
@@ -204,7 +207,7 @@ class HullWhiteHestonGenerator():
         fourth for lnS
         """
         if randoms_to_use == None:
-            randoms_to_use = self._rng.GetUncorrelatedNormals()
+            randoms_to_use = self._rng.get_uncorrelated_normals()
         elif np.shape(randoms_to_use) != (len(self._dt),4):
             raise Exception('Random variables incorrectly dimensioned')
         return np.dot(randoms_to_use,self._precomputed['cholesky'])

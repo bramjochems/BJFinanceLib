@@ -70,7 +70,7 @@ class MultidimensionalRNG:
         else:
             raise Exception("RNG initialized without seed, cannot reset")       
 
-    def getUncorrelatedNormals(self):
+    def get_uncorrelated_normals(self):
         """
         Returns a matrix with numberOfRows rows and numberOfColumns columns
         with uncorrelated normally distributed random draws
