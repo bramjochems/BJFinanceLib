@@ -184,7 +184,6 @@ class HullWhiteHestonGenerator():
             part1 = (s/a)**2  * (T-t + 2*eat/a - 0.5*exp(-2*a*(T-t))/a - 1.5/a)
             part2 = (eta/b)**2 * (T-t + 2*ebt/b - 0.5*exp(-2*b*(T-t))/b - 1.5/b)
             part3 = 2*rho*s*eta/(a*b)*(T-t + (eat-1)/a + (ebt-1)/b - (eat*ebt-1)/(a+b))
-            print(part1+part2+part3)
             return part1+part2+part3
         
     
