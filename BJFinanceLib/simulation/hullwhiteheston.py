@@ -165,7 +165,7 @@ class HullWhiteHestonGenerator():
         self._precomputed['stockpath'] = {}
         self._precomputed['stockpath']['lnS0'] = log(self._inputs['equity_spot'])
         self._precomputed['stockpath']['integral_phi'] = np.array( 
-             [log(exp(-self._initial_rate(s)*s)) - log(exp(-self._initial_rate(t)*t)) +
+             [self._initial_rate(t)*t - self._initial_rate(s)*s +
               0.5*(self._vt_helper(0,t)-self._vt_helper(0,s)) for 
                    (s,t) in list(zip(self.sample_times[:-1],self.sample_times[1:]))])
     
@@ -274,8 +274,6 @@ class HullWhiteHestonGenerator():
         integral_ru_helper = (0.5*(xpath[1:]+xpath[:-1]+ypath[1:]+ypath[:-1])*dt + 
                               self._precomputed['stockpath']['integral_phi'])
         integral_sudu_helper = np.sqrt(0.5*(sigmapath[1:]+sigmapath[:-1])*dt)
-        
-        #print(integral_ru_helper)     
         
         e = self._inputs['heston_vol_meanreversion_speed']        
         w = self._inputs['heston_vol_of_vol']
