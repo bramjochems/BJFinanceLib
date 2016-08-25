@@ -220,10 +220,10 @@ class HullWhiteHestonGenerator():
         """
         res = np.zeros(len(self.sample_times))
         res[0] = self._inputs['heston_vol_initial']
-        uvec = np.uniform.random(size=len(self._dt))
+        uvec = np.random.uniform(size=len(self._dt))
         for (cntr,dt) in enumerate(self._dt):
-            s2 = res[cntr]*self._precomputed['sigma_params']['s2_factor'] + self._precomputed['sigma_params']['s2_constant'] 
-            m = res[cntr]*self._precomputed['sigma_params']['m_factor'] + self._precomputed['sigma_params']['m_constant'] 
+            s2 = res[cntr]*self._precomputed['sigma_params']['s2_factor'][cntr] + self._precomputed['sigma_params']['s2_constant'][cntr]
+            m = res[cntr]*self._precomputed['sigma_params']['m_factor'][cntr] + self._precomputed['sigma_params']['m_constant'][cntr]           
             phi = s2/(m**2)
             if phi <= 1.5:
                 b2 = 2/phi - 1 + sqrt(2/phi)*sqrt(2/phi-1)
@@ -245,7 +245,8 @@ class HullWhiteHestonGenerator():
         """ Helper function for generating paths for x and y """
         res = np.zeros(len(self.sample_times))
         res[0] = 0
-        for (cntr,(m,s,random)) in enumerate(zip([precomputed_mean_rev,precomputed_stdev,randoms])):
+
+        for (cntr,(m,s,random)) in enumerate(zip(precomputed_mean_rev,precomputed_stdev,randoms)):
             res[cntr+1] = res[cntr]*m + s*random
         return res
    
@@ -293,7 +294,7 @@ class HullWhiteHestonGenerator():
     
     
     def _calculate_r_path(self,xpath,ypath):
-        return xpath + ypath + self._precompted['phi_vector']
+        return xpath + ypath + self._precomputed['phi_vector']
     
     
     def get_path(self):
@@ -314,4 +315,4 @@ class HullWhiteHestonGenerator():
         y_path = self._get_y_path(randoms[:,2])
         r_path = self._calculate_r_path(x_path,y_path)    
         lnS_path = self._get_lnS_path(x_path,y_path,sigma_path,randoms)
-        return np.column_stack([r_path,sigma_path,np.exp(lnS_path),x_path,y_path])
+        return np.column_stack([r_path,np.exp(lnS_path),sigma_path,x_path,y_path])
