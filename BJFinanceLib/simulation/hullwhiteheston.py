@@ -184,14 +184,14 @@ class HullWhiteHestonGenerator():
             a = self._inputs['hullwhite_x_meanreversion']
             b = self._inputs['hullwhite_y_meanreversion']
             s = self._inputs['hullwhite_x_vol']
-            eta = self._inputs['hullwhite_y_vol']
+            e = self._inputs['hullwhite_y_vol']
             rho = self._inputs['correl_x_y']
             eat = exp(-a*(T-t))
             ebt = exp(-b*(T-t))
 
             part1 = (s/a)**2*(T-t + 2*eat/a - 0.5*exp(-2*a*(T-t))/a - 1.5/a)
-            part2 = (eta/b)**2*(T-t + 2*ebt/b - 0.5*exp(-2*b*(T-t))/b - 1.5/b)
-            part3 = 2*rho*s*eta/(a*b)*(T-t + (eat-1)/a + (ebt-1)/b - (eat*ebt-1)/(a+b))
+            part2 = (e/b)**2*(T-t + 2*ebt/b - 0.5*exp(-2*b*(T-t))/b - 1.5/b)
+            part3 = 2*rho*s*e/(a*b)*(T-t + (eat-1)/a + (ebt-1)/b - (eat*ebt-1)/(a+b))
             return part1+part2+part3    
  
     def _determine_cholesky_decomposition(self):
